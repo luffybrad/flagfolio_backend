@@ -10,11 +10,16 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
+# Install nodemon globally in docker container to allow use in cmd
+RUN npm install -g nodemon
+
 # Copy the rest of the application code to the container
 COPY . .
 
 # Expose the port that the application will run on
 EXPOSE 5000
 
-# Command to start the Node.js application
-CMD ["node", "index.js"]
+# Command to start the Node.js application (nodemon to monitor any changes in code)
+CMD ["nodemon", "index.js"]
+
+

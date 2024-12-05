@@ -8,8 +8,18 @@ import crypto from "crypto";
 import nodemailer from 'nodemailer'
 
 const app = express();
-app.use(cors());
 app.use(bodyParser.json());
+
+
+// Configure CORS options
+const corsOptions = {
+  origin: ['https://flag-folio.vercel.app', 'http://localhost:5173'],  // Allow this origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+};
+
+// Use CORS middleware with options
+app.use(cors(corsOptions));
 
 // Create MySQL connection pool
 const db = mysql.createConnection({
