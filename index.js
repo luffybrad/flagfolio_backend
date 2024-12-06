@@ -6,10 +6,12 @@ import bcrypt from 'bcryptjs';
 import mysql from 'mysql2';
 import crypto from "crypto";
 import nodemailer from 'nodemailer'
+import dotenv from 'dotenv'
 
 const app = express();
 app.use(bodyParser.json());
-
+// Load environment variables from .env file
+dotenv.config(); // Call config to load variables
 
 // Configure CORS options
 const corsOptions = {
@@ -41,7 +43,10 @@ db.query(`
   CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) UNIQUE,
-    password VARCHAR(255)
+    password VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    resetPasswordToken VARCHAR(255),  
+    resetPasswordExpires DATETIME      
   )
 `, (err) => {
   if (err) {
@@ -51,16 +56,13 @@ db.query(`
 });
 
 
-
-
-
 // Sign-up route
 app.post('/signup', (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, email } = req.body;
 
   // Check for missing fields
-  if (!username || !password) {
-    return res.status(400).json({ message: 'Username and password are required' });
+  if (!username || !password || !email) {
+    return res.status(400).json({ message: 'Username, password and email required' });
   }
 
   // Hash the password with bcrypt
@@ -68,7 +70,7 @@ app.post('/signup', (req, res) => {
     if (err) return res.status(500).json({ message: 'Error hashing password' });
 
     // Insert new user into the database
-    db.query("INSERT INTO users (username, password) VALUES (?, ?)", [username, hash], (err, results) => {
+    db.query("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", [username, hash, email], (err, results) => {
       if (err) {
         // Check for duplicate username error
         if (err.code === 'ER_DUP_ENTRY') {
@@ -80,6 +82,7 @@ app.post('/signup', (req, res) => {
     });
   });
 });
+
 
 // Sign-in route
 app.post('/signin', (req, res) => {
@@ -98,7 +101,7 @@ app.post('/signin', (req, res) => {
 
     // Compare input password with hashed password
     bcrypt.compare(password, user.password, (err, isMatch) => {
-      if (err || !isMatch) return res.status(401).json({ message: "Invalid credentials" });
+      if (err || !isMatch) return res.status(401).json({ message: "Invalid password" });
 
       // Token creation
       const token = jwt.sign({ id: user.id }, 'secret', { expiresIn: '1h' }); // Replace with your JWT secret
@@ -110,13 +113,13 @@ app.post('/signin', (req, res) => {
 
 
 // Forgot Password Route
-app.post('/forgot-password', async (req, res) => {
-  const { username, email } = req.body;
+app.post('/forgotPassword', async (req, res) => {
+  const { email } = req.body;
 
   // Check if user exists by username or email (depending on your schema)
-  db.query("SELECT * FROM users WHERE username = ?", [username], async (err, results) => {
+  db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
     if (err || results.length === 0) {
-      return res.status(400).send('User not found.');
+      return res.status(400).json('Email does not exist');
     }
 
     const user = results[0];
@@ -125,13 +128,14 @@ app.post('/forgot-password', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
 
     // Set token and expiration time (e.g., 1 hour)
-    const expirationTime = Date.now() + 3600000; // Token valid for 1 hour
+    const expirationTime = new Date(Date.now() + 3600000); // Token valid for 1 hour
 
-    db.query("UPDATE users SET resetPasswordToken = ?, resetPasswordExpires = ? WHERE id = ?", 
+    db.query(`UPDATE users SET resetPasswordToken = ?, resetPasswordExpires = ? WHERE id = ?`, 
              [token, expirationTime, user.id], 
              async (updateErr) => {
       if (updateErr) {
-        return res.status(500).send('Error updating user record.');
+        console.log(updateErr);
+        return res.status(500).json('Error updating user record.');
       }
 
       // Send email with reset link
@@ -147,18 +151,49 @@ app.post('/forgot-password', async (req, res) => {
         to: user.email,
         subject: 'Password Reset',
         text: `You are receiving this because you have requested to reset your password.\n\n` +
-              `Please click on the following link or paste it into your browser to complete the process:\n\n` +
-              `http://localhost:3000/reset-password?token=${token}\n\n` +
-              `If you did not request this, please ignore this email.\n`,
-      };
-
+        `Please click on the following link or paste it into your browser to complete the process:\n\n` +
+        `http://localhost:5173/resetPassword?token=${token}&email=${encodeURIComponent(user.email)}\n\n` + // Include token and email in link
+        `If you did not request this, please ignore this email.\n`,
+};
       try {
         await transporter.sendMail(mailOptions);
-        res.status(200).send('Password reset link sent.');
+        res.status(200).json('Password reset link sent.');
       } catch (emailErr) {
         console.error('Error sending email:', emailErr);
-        res.status(500).send('Error sending password reset email.');
+        res.status(500).json('Error sending password reset email.');
       }
+    });
+  });
+});
+
+
+//reset password route
+// Reset Password Route
+app.post('/resetPassword', async (req, res) => {
+  const { token, email, newPassword } = req.body;
+
+  // Check if token is valid and not expired
+  db.query("SELECT * FROM users WHERE email = ? AND resetPasswordToken = ? AND resetPasswordExpires > ?", 
+           [email, token, new Date()], 
+           async (err, results) => {
+    if (err || results.length === 0) {
+      return res.status(400).send('Invalid or expired token');
+    }
+
+    const user = results[0];
+
+    // Hash the new password
+    bcrypt.hash(newPassword, 10, async (err, hash) => {
+      if (err) return res.status(500).json({ message: 'Error hashing password' });
+
+      // Update user's password and clear reset fields
+      db.query("UPDATE users SET password = ?, resetPasswordToken = NULL, resetPasswordExpires = NULL WHERE id = ?", 
+               [hash, user.id], 
+               (updateErr) => {
+        if (updateErr) return res.status(500).send('Error updating password.');
+
+        res.status(200).send('Password has been successfully updated.');
+      });
     });
   });
 });
@@ -189,3 +224,8 @@ app.get("/protected", authenticateToken, (req, res) => {
 // Server listening on specified port
 const port = process.env.PORT || 5000; // Use environment variable or default to port 5000
 app.listen(port, () => console.log("Server running on port: " + port + "By Brad")); // Start server and log to console
+
+
+
+
+
