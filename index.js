@@ -23,75 +23,39 @@ const corsOptions = {
 // Use CORS middleware with options
 app.use(cors(corsOptions));
 
-// // Create MySQL connection pool
-// const db = mysql.createConnection({
-//   host: 'my-mysql', // Change this if you're using Docker
-//   user: 'root', // MySQL username
-//   password: '3353', // MySQL password (set this according to your configuration)
-//   database: 'flagfolio_data', // Database name
-// });
-
-// // Connect to the database
-// db.connect(err => {
-//   if (err) {
-//     console.error('Error connecting to MySQL:', err);
-//     return;
-//   }
-//   console.log('Connected to MySQL');
-//   // Create users table if it doesn't exist (MySQL syntax)
-// db.query(`
-//   CREATE TABLE IF NOT EXISTS users (
-//     id INT AUTO_INCREMENT PRIMARY KEY,
-//     username VARCHAR(255) UNIQUE,
-//     password VARCHAR(255),
-//     email VARCHAR(255) UNIQUE,
-//     resetPasswordToken VARCHAR(255),  
-//     resetPasswordExpires DATETIME      
-//   )
-// `, (err) => {
-//   if (err) {
-//     console.log("Error creating table: " + err.message);
-//   }
-// });
-// });
-
-
-//fly.io pg setup
-import { Pool } from 'pg'; // Import PostgreSQL client
-
-// Create PostgreSQL connection pool
-const db = new Pool({
-  host: process.env.PG_HOST, // Replace with your Fly.io Postgres host
-  user: process.env.PG_USER, // Replace with your username
-  password: process.env.PG_PASSWORD, // Replace with your password
-  database: process.env.PG_DATABASE, // Replace with your database name
-  port: 5432, // Default PostgreSQL port
+// Create MySQL connection pool
+const db = mysql.createConnection({
+  host: 'my-mysql', // Change this if you're using Docker
+  user: 'root', // MySQL username
+  password: '3353', // MySQL password (set this according to your configuration)
+  database: 'flagfolio_data', // Database name
 });
 
 // Connect to the database
 db.connect(err => {
   if (err) {
-    console.error('Error connecting to PostgreSQL:', err);
+    console.error('Error connecting to MySQL:', err);
     return;
   }
-  console.log('Connected to PostgreSQL');
-
-  // Create users table if it doesn't exist (PostgreSQL syntax)
-  db.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      username VARCHAR(255) UNIQUE,
-      password VARCHAR(255),
-      email VARCHAR(255) UNIQUE,
-      reset_password_token VARCHAR(255),  
-      reset_password_expires TIMESTAMP      
-    )
-  `, (err) => {
-    if (err) {
-      console.log("Error creating table: " + err.message);
-    }
-  });
+  console.log('Connected to MySQL');
+  // Create users table if it doesn't exist (MySQL syntax)
+db.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) UNIQUE,
+    password VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    resetPasswordToken VARCHAR(255),  
+    resetPasswordExpires DATETIME      
+  )
+`, (err) => {
+  if (err) {
+    console.log("Error creating table: " + err.message);
+  }
 });
+});
+
+
 
 
 
