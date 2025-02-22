@@ -108,7 +108,7 @@ app.post('/forgotPassword', async (req, res) => {
       subject: 'Password Reset',
       text: `You are receiving this because you have requested to reset your password.\n\n` +
             `Please click on the following link or paste it into your browser to complete the process:\n\n` +
-            `http://localhost:5173/resetPassword?token=${token}&email=${encodeURIComponent(user.email)}\n\n` +
+            `http://flag-folio.vercel.app/resetPassword?token=${token}&email=${encodeURIComponent(user.email)}\n\n` +
             `If you did not request this, please ignore this email.\n`,
     };
 
